@@ -62,7 +62,7 @@ FONTSRC	= src/c64/c64oscharset.p8
 SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 \
 	  src/*/store_platform.p8 src/*/pagemem_platform.p8 src/*/xmem_platform.p8 src/c64/reu.p8
 
-all: build $(PROGS) $(FONTPROG)
+all: build $(PROGS) $(FONTPROG) font
 
 build:
 	$(MD) build
@@ -142,7 +142,7 @@ emu-c64reu:	build/p8vi-c64reu.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64reu.prg
 
 # the font build (p8vi.fnt is on the disk)
-emu-c64font:	build/p8vi-c64font.prg disk
+emu-c64font:	build/p8vi-c64font.prg font disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64font.prg
 
 emu-cx16:	build/p8vi-cx16.prg
