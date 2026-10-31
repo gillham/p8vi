@@ -114,9 +114,11 @@ clean:
 # the last known good version, whatever build/ holds).  the quick checks
 # run first; run make test-c64, test-c64reu and test-c64-screen too before
 # a release that matters.
-release:	$(PROGS) test audit size
+release:	$(PROGS) font test audit size
 	$(MD) release
 	$(CP) build$(SEP)p8vi-c64.prg release
+	$(CP) build$(SEP)p8vi-c64font.prg release
+	$(CP) build$(SEP)p8vi.fnt release
 	$(CP) build$(SEP)p8vi-c64reu.prg release
 	$(CP) build$(SEP)p8vi-cx16.prg release
 	$(CP) build$(SEP)p8vi-vic20.prg release
