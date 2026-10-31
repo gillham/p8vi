@@ -1,0 +1,25 @@
+empty
+insert
+insert middle
+insert start/end
+delete
+delete_nchar
+full
+loaded
+set
+marks
+lines
+copy
+insert_bytes
+read_room
+modified
+find_bytes
+undo
+change range
+yank
+gappos
+move_gap
+raw load
+chunks
+
+all tests passed
