@@ -45,6 +45,9 @@ PCCARGSC64REU=-srcdirs src:src/c64reu:src/c64 -asmlist -target c64 -out build
 # the C64 font build: the REU build with its own font (src/c64/font.p8)
 PCCARGSC64FONT=$(PCCARGSC64REU)
 PCCARGSCX16=-srcdirs src:src/cx16 -asmlist -target cx16 -out build
+PCCARGSM65=-srcdirs src:src/mega65 -asmlist -target config/mega65.properties -out build
+# the MEGA65 page store build: text in chip RAM banks 4 and 5 through DMA
+PCCARGSM65DMA=-srcdirs src:src/mega65dma:src/mega65 -asmlist -target config/mega65.properties -out build
 PCCARGSVIC20=-srcdirs src:src/vic20 -asmlist -target config/vic20plus24.properties -out build
 PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 
@@ -53,7 +56,7 @@ PCCARGSVM=-srcdirs src:src/virtual -target virtual -out build
 # editor.p8.  The C64 has two builds: p8vi-c64
 # with the gap buffer (the most room for text in main RAM) and p8vi-c64reu
 # with the page store (for text in an REU, docs/XMEM-DESIGN.md)
-PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-vic20.prg
+PROGS	= build/p8vi-c64.prg build/p8vi-c64reu.prg build/p8vi-cx16.prg build/p8vi-mega65.prg build/p8vi-mega65dma.prg build/p8vi-vic20.prg
 # an experiment, not in the release yet: p8vi-c64font (src/p8vi_c64font.p8)
 # is p8vi-c64reu with a font that has the ASCII characters PETSCII lacks.
 # it loads the font from p8vi.fnt (make font, from FONTSRC).
@@ -62,7 +65,7 @@ FONTSRC	= src/c64/c64oscharset.p8
 SRCS	= src/editor.p8 src/buffer.p8 src/gapbuffer.p8 src/pagestore.p8 src/charset.p8 src/*/platform.p8 \
 	  src/*/store_platform.p8 src/*/pagemem_platform.p8 src/*/xmem_platform.p8 src/c64/reu.p8
 
-all: build $(PROGS) $(FONTPROG) font
+all: build $(PROGS) $(FONTPROG)
 
 build:
 	$(MD) build
@@ -81,7 +84,7 @@ build/p8vi-c64reu.prg: src/p8vi.p8 $(SRCS)
 	$(CP) build/p8vi.asm build/p8vi-c64reu.asm
 	$(RM) build/p8vi.prg
 
-build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8
+build/p8vi-c64font.prg: src/p8vi_c64font.p8 $(SRCS) src/c64/font.p8 font
 	$(PCC) $(PCCARGSC64FONT) $<
 	$(CP) build/p8vi_c64font.prg $@
 	$(CP) build/p8vi_c64font.list build/p8vi-c64font.list
@@ -99,6 +102,27 @@ build/p8vi-cx16.prg: src/p8vi_cx16.p8 $(SRCS)
 	$(CP) build/p8vi_cx16.list build/p8vi-cx16.list
 	$(CP) build/p8vi_cx16.asm build/p8vi-cx16.asm
 	$(RM) build/p8vi_cx16.prg
+
+# the MEGA65 builds have the font build's character set (the font follows
+# the text: ASCII or PETSCII).  p8vi-mega65 (src/p8vi_mega65.p8): the gap
+# buffer, all features
+build/p8vi-mega65.prg: src/p8vi_mega65.p8 $(SRCS) src/mega65/*.p8 config/mega65.properties $(wildcard libraries/mega65/*.p8)
+	$(PCC) $(PCCARGSM65) $<
+	$(CP) build/p8vi_mega65.prg $@
+	$(CP) build/p8vi_mega65.list build/p8vi-mega65.list
+	$(CP) build/p8vi_mega65.asm build/p8vi-mega65.asm
+	$(RM) build/p8vi_mega65.prg
+
+# p8vi-mega65dma (src/p8vi_mega65dma.p8, src/mega65dma): the page store,
+# the text in attic RAM, or chip RAM banks 4 and 5 without it, copied in
+# and out with DMA.  the program has to end below $c000, so some features
+# are off
+build/p8vi-mega65dma.prg: src/p8vi_mega65dma.p8 $(SRCS) src/mega65/*.p8 src/mega65dma/*.p8 config/mega65.properties $(wildcard libraries/mega65/*.p8)
+	$(PCC) $(PCCARGSM65DMA) $<
+	$(CP) build/p8vi_mega65dma.prg $@
+	$(CP) build/p8vi_mega65dma.list build/p8vi-mega65dma.list
+	$(CP) build/p8vi_mega65dma.asm build/p8vi-mega65dma.asm
+	$(RM) build/p8vi_mega65dma.prg
 
 build/p8vi-vic20.prg: src/p8vi_vic20.p8 $(SRCS)
 	$(PCC) $(PCCARGSVIC20) $<
@@ -121,6 +145,8 @@ release:	$(PROGS) font test audit size
 	$(CP) build$(SEP)p8vi.fnt release
 	$(CP) build$(SEP)p8vi-c64reu.prg release
 	$(CP) build$(SEP)p8vi-cx16.prg release
+	$(CP) build$(SEP)p8vi-mega65.prg release
+	$(CP) build$(SEP)p8vi-mega65dma.prg release
 	$(CP) build$(SEP)p8vi-vic20.prg release
 	$(CP) docs$(SEP)QUICKSTART.md release
 
@@ -144,11 +170,58 @@ emu-c64reu:	build/p8vi-c64reu.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64reu.prg
 
 # the font build (p8vi.fnt is on the disk)
-emu-c64font:	build/p8vi-c64font.prg font disk
+emu-c64font:	build/p8vi-c64font.prg disk
 	$(EMU) -monitorfont "JetBrains Mono 16" -autostartprgmode 1 build/p8vi-c64font.prg
 
 emu-cx16:	build/p8vi-cx16.prg
 	x16emu -debug -scale 2 -rtc -fsroot samples/ -run -prg build/p8vi-cx16.prg
+
+emu-mega65:	build/p8vi-mega65.prg
+	xmega65 -prg build/p8vi-mega65.prg
+
+emu-mega65dma:	build/p8vi-mega65dma.prg
+	xmega65 -prg build/p8vi-mega65dma.prg
+
+# which zero page bytes the MEGA65 ROM changes in KERNAL calls (for the
+# zp_* lists in config/mega65.properties), in xmega65 headless.  the
+# program is also on the disk as zpload, for its LOAD test.
+ZPDISK=build/zpwatch.d81
+test-mega65-zp:	build
+	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/zpwatch.p8
+	c1541 -format zpwatch,01 d81 $(ZPDISK)
+	c1541 -attach $(ZPDISK) -write build/zpwatch.prg zpload,p
+	xmega65 -headless -sleepless -besure -prg build/zpwatch.prg -prgexit \
+		-8 $(abspath $(ZPDISK)) -dumpscreen build/zpwatch.txt
+	cat build/zpwatch.txt
+
+# editor tests on a MEGA65 in xmega65 (and c1541), driven through its
+# serial monitor by tools/m65harness.py: the suites of tests/vice/edtest.py
+# and the font suite.  left out, as for the C64 font build: g-cmds and
+# ascii (they type and keep PETSCII graphics in ways the font build maps
+# to the ASCII characters)
+FONT_SKIP_M65 = --skip g-cmds --skip ascii
+test-mega65:	build/p8vi-mega65.prg
+	python3 -B tests/mega65/edtest.py --font $(FONT_SKIP_M65) files
+	python3 -B tests/mega65/edtest.py screen
+
+# the same on the MEGA65 page store build, with the suites for more text
+# than main RAM holds (--paged) and the font suite: the pages in attic RAM
+# (xemu has it).  left out: subst and read-dir (SUBST and DIR are off in
+# this build), and g-cmds and ascii as above.  then some of them as on a
+# Nexys4 board (model ID $40), without attic RAM: the pages in banks 4 and
+# 5 (not bigundo: 30 KB of text, undo and yank need more than their 126
+# pages; it fails the same way on a C64 with a 128 KB REU)
+test-mega65dma:	build/p8vi-mega65dma.prg
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --font \
+		--skip subst --skip read-dir $(FONT_SKIP_M65) files
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg --paged --model 64 \
+		files delete-put undo pages huge
+	python3 -B tests/mega65/edtest.py --prg build/p8vi-mega65dma.prg screen
+
+# which keys give which PETSCII codes (the table in tools/m65harness.py)
+test-mega65-keymap:	build
+	$(PCC) -target config/mega65.properties -srcdirs tests/mega65 -out build tests/mega65/keyecho.p8
+	python3 -B tests/mega65/keymap.py --prg build/keyecho.prg
 
 EMUVIC=xvic -default -keymap 1 -model ntsc -memory all -8 $(DISK) -drive8type 1581 -monitorfont "JetBrains Mono 16"
 emu-vic20:	build/p8vi-vic20.prg disk
@@ -168,6 +241,8 @@ size:	$(PROGS) $(FONTPROG)
 	python3 tools/listsize.py build/p8vi-c64reu.list --map
 	python3 tools/listsize.py build/p8vi-c64font.list --map --memtop 0xc800
 	python3 tools/listsize.py build/p8vi-cx16.list --map
+	python3 tools/listsize.py build/p8vi-mega65.list --map --memtop 0xc000
+	python3 tools/listsize.py build/p8vi-mega65dma.list --map --memtop 0xc000
 	python3 tools/listsize.py build/p8vi-vic20.list --map --min-free $(VIC20_MIN_FREE)
 
 # editor tests on a C64 in VICE (x64sc and c1541 in the PATH)
